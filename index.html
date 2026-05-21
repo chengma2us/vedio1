@@ -1006,6 +1006,20 @@ function selectVideo(v) {
   `;
 }
 
+function renderDebugFrames(frames) {
+  if (!frames || !frames.length) return '';
+  let html = '<div style="margin-bottom:32px"><div class="section-title">AI 实际看到的画面（每秒抽1帧）</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">';
+  frames.forEach((b64, i) => {
+    html += '<div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);position:relative">';
+    html += '<img src="data:image/jpeg;base64,' + b64 + '" style="width:100%;display:block">';
+    html += '<div style="position:absolute;bottom:4px;left:4px;font-size:10px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 5px;border-radius:3px">第' + (i+1) + '秒</div>';
+    html += '</div>';
+  });
+  html += '</div><p style="font-size:12px;color:var(--muted);margin-top:8px">以上是AI实际分析的画面，可对比判断检测是否误判</p></div>';
+  return html;
+}
+
+
 function setSpeed(s) {
   const vid = document.getElementById('detailVideo');
   if (vid) vid.playbackRate = s;
