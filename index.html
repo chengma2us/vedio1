@@ -663,7 +663,7 @@ function fmtSec(s) {
 // ─────────────────────────────────────────────
 const MODAL_API = 'https://chengma2us--vidscore-analyze.modal.run';
 
-function startAnalysis() {
+async function startAnalysis() {
   if (!specCheckPassed) return;
   document.getElementById('configPanel').style.display = 'none';
   document.getElementById('specPanel').style.display = 'none';
