@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VidScore · 工业视频质检平台</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #161a1f;
+    --surface2: #1e242c;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --danger: #ff4d6d;
+    --danger-dim: rgba(255,77,109,0.12);
+    --warn: #ffb23f;
+    --warn-dim: rgba(255,178,63,0.12);
+    --info: #4da6ff;
+    --info-dim: rgba(77,166,255,0.12);
+    --radius: 10px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 228px; flex-shrink: 0;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 28px 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
+  }
+  .logo { padding: 0 24px 8px; font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--accent); }
+  .logo-sub { padding: 0 24px 28px; font-size: 11px; color: var(--muted); }
+  .nav-label { font-size: 10px; font-weight: 500; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; padding: 0 24px 10px; margin-top: 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 24px; font-size: 13.5px; color: var(--muted);
+    cursor: pointer; transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim); }
+  .nav-item svg { opacity: 0.7; flex-shrink: 0; }
+  .nav-item.active svg { opacity: 1; }
+  .sidebar-footer { padding: 16px 24px 0; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); margin-top: auto; line-height: 1.8; }
+
+  /* ── Main ── */
+  .main { margin-left: 228px; flex: 1; display: flex; overflow: hidden; }
+  .view { display: none; width: 100%; }
+  .view.active { display: flex; }
+
+  /* ── Upload page ── */
+  #view-upload { flex-direction: column; align-items: center; justify-content: flex-start; padding: 48px 40px; min-height: 100vh; overflow-y: auto; }
+  .upload-header { text-align: center; margin-bottom: 32px; }
+  .upload-header h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.4px; margin-bottom: 8px; }
+  .upload-header p { color: var(--muted); font-size: 13px; }
+
+  .drop-zone {
+    width: 100%; max-width: 640px;
+    border: 1.5px dashed var(--border2); border-radius: 16px;
+    padding: 48px 40px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: var(--surface);
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: var(--accent-dim); }
+  .drop-zone h3 { font-size: 15px; font-weight: 500; margin-bottom: 5px; }
+  .drop-zone p { font-size: 12.5px; color: var(--muted); }
+  .drop-zone input { display: none; }
+  .dz-icon { margin-bottom: 14px; color: var(--muted); }
+  .drop-zone.drag .dz-icon { color: var(--accent); }
+
+  /* Spec check panel */
+  .spec-panel {
+    width: 100%; max-width: 640px; margin-top: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 24px;
+  }
+  .spec-panel h3 { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+  .spec-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-label { color: var(--muted); }
+  .spec-val { font-family: var(--mono); font-size: 12px; }
+  .spec-val.ok { color: var(--accent); }
+  .spec-val.fail { color: var(--danger); }
+  .spec-val.pending { color: var(--muted); }
+
+  /* Checks config */
+  .config-panel {
+    width: 100%; max-width: 640px; margin-top: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 24px;
+  }
+  .config-panel h3 { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+  .config-panel .sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+  .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px; background: var(--surface2);
+    border-radius: 8px; font-size: 13px; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s;
+    flex-direction: column;
+  }
+  .check-item:hover { border-color: var(--border2); }
+  .check-item.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .check-item.fatal { border-color: var(--danger) !important; background: var(--danger-dim) !important; cursor: default; }
+  .check-item input { display: none; }
+  .check-name { font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .check-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+  .check-item.selected .check-desc { color: rgba(0,229,160,0.6); }
+  .check-item.fatal .check-desc { color: rgba(255,77,109,0.6); }
+  .weight-tag {
+    font-size: 10px; font-family: var(--mono);
+    padding: 1px 5px; border-radius: 3px; margin-left: auto;
+    background: rgba(255,255,255,0.06); color: var(--muted);
+  }
+  .check-item.fatal .weight-tag { background: var(--danger-dim); color: var(--danger); }
+  .check-item.selected .weight-tag { background: var(--accent-dim); color: var(--accent); }
+
+  .analyze-btn {
+    width: 100%; margin-top: 16px; padding: 13px;
+    background: var(--accent); color: #0d0f12;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans); transition: opacity 0.15s;
+  }
+  .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .analyze-btn:not(:disabled):hover { opacity: 0.9; }
+
+  /* Spec-fail blocker */
+  .spec-fail-banner {
+    display: none; width: 100%; max-width: 640px; margin-top: 16px;
+    background: var(--danger-dim); border: 1px solid var(--danger);
+    border-radius: 10px; padding: 14px 18px;
+    font-size: 13px; color: var(--danger); line-height: 1.6;
+  }
+  .spec-fail-banner.active { display: block; }
+
+  /* Progress */
+  .progress-wrap {
+    width: 100%; max-width: 640px; margin-top: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 32px; text-align: center; display: none;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-bar-track { width: 100%; height: 3px; background: var(--surface2); border-radius: 2px; margin: 18px 0 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
+  .progress-label { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .progress-step-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+
+  /* ── Feedback page ── */
+  #view-feedback { flex-direction: row; height: 100vh; }
+
+  .video-list { width: 290px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; padding: 24px 0; }
+  .list-header { padding: 0 20px 16px; }
+  .list-header h2 { font-size: 18px; font-weight: 600; }
+  .list-header p { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+
+  .video-card {
+    padding: 13px 20px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s; position: relative;
+  }
+  .video-card:hover { background: var(--surface); }
+  .video-card.active { background: var(--surface2); }
+  .vc-name { font-size: 12.5px; font-weight: 500; font-family: var(--mono); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 36px; }
+  .vc-meta { font-size: 11px; color: var(--muted); }
+  .vc-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .vc-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-family: var(--mono); }
+  .vc-tag.fatal { background: var(--danger-dim); color: var(--danger); }
+  .vc-tag.warn { background: var(--warn-dim); color: var(--warn); }
+
+  .score-badge {
+    position: absolute; top: 13px; right: 14px;
+    width: 30px; height: 30px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; font-family: var(--mono);
+  }
+  .score-badge.ok { background: var(--accent-dim); color: var(--accent); }
+  .score-badge.warn { background: var(--warn-dim); color: var(--warn); }
+  .score-badge.fail { background: var(--danger-dim); color: var(--danger); }
+  .score-badge.reject { background: var(--danger); color: #fff; }
+
+  /* Detail panel */
+  .detail-panel { flex: 1; overflow-y: auto; padding: 36px 44px; }
+  .detail-title { font-size: 15px; font-weight: 500; font-family: var(--mono); margin-bottom: 6px; color: var(--muted); }
+  .detail-name { font-size: 20px; font-weight: 600; margin-bottom: 24px; word-break: break-all; }
+
+  /* Video player area */
+  .video-player-area {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 20px;
+  }
+  .video-player-area video { width: 100%; border-radius: 8px; background: #000; display: block; }
+  .no-video-placeholder {
+    width: 100%; aspect-ratio: 16/9; background: var(--surface2);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; gap: 8px;
+  }
+
+  /* Timeline */
+  .timeline-wrap { margin-top: 12px; }
+  .tl-bar {
+    height: 28px; background: var(--surface2); border-radius: 5px;
+    position: relative; overflow: hidden; border: 1px solid var(--border);
+  }
+  .tl-seg {
+    position: absolute; top: 0; height: 100%; opacity: 0.82;
+    cursor: pointer; transition: opacity 0.1s;
+  }
+  .tl-seg:hover { opacity: 1; }
+  .tl-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 4px; }
+  .tl-legend { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+  .tl-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .tl-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Speed controls */
+  .speed-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .speed-label { font-size: 12px; color: var(--muted); }
+  .speed-btn {
+    padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border2);
+    background: transparent; color: var(--muted); font-size: 12px; font-family: var(--mono);
+    cursor: pointer; transition: all 0.1s;
+  }
+  .speed-btn.active { background: var(--accent); border-color: var(--accent); color: #0d0f12; font-weight: 600; }
+  .speed-btn:hover:not(.active) { border-color: var(--text); color: var(--text); }
+
+  /* Score cards */
+  .score-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .sc-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .sc-value { font-size: 22px; font-weight: 600; font-family: var(--mono); }
+  .sc-value.ok { color: var(--accent); }
+  .sc-value.warn { color: var(--warn); }
+  .sc-value.fail { color: var(--danger); }
+  .sc-sub { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+
+  /* Reject banner */
+  .reject-banner {
+    background: var(--danger-dim); border: 1px solid var(--danger);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
+    font-size: 13px; color: var(--danger); display: flex; align-items: flex-start; gap: 10px;
+  }
+
+  /* Section */
+  .section-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+
+  /* Issues list */
+  .issues-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 24px; }
+  .issue-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 15px; background: var(--surface);
+    border-radius: var(--radius); border: 1px solid var(--border); font-size: 13px;
+  }
+  .issue-row.fatal-row { border-color: rgba(255,77,109,0.3); background: var(--danger-dim); }
+  .issue-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .issue-dot.danger { background: var(--danger); }
+  .issue-dot.warn { background: var(--warn); }
+  .issue-dot.info { background: var(--info); }
+  .issue-name { flex: 1; font-weight: 500; }
+  .issue-duration { font-family: var(--mono); font-size: 11.5px; color: var(--muted); background: var(--surface2); padding: 3px 8px; border-radius: 4px; }
+  .issue-time { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .fatal-label { font-size: 10px; font-weight: 600; color: var(--danger); background: var(--danger-dim); padding: 2px 6px; border-radius: 3px; }
+
+  /* Spec check in detail */
+  .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+  .spec-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .spec-card.pass { border-color: rgba(0,229,160,0.2); }
+  .spec-card.fail-card { border-color: rgba(255,77,109,0.3); background: var(--danger-dim); }
+  .spec-icon { font-size: 16px; }
+  .spec-card-label { font-size: 12px; color: var(--muted); }
+  .spec-card-val { font-size: 13px; font-weight: 500; font-family: var(--mono); }
+  .spec-card-val.ok { color: var(--accent); }
+  .spec-card-val.fail { color: var(--danger); }
+
+  /* AI summary */
+  .ai-chat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .ai-msg { font-size: 13px; color: var(--text); line-height: 1.8; }
+  .ai-msg strong { color: var(--accent); font-weight: 500; }
+  .ai-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+
+  /* History */
+  #view-history { flex-direction: column; padding: 40px; overflow-y: auto; }
+  #view-history h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  #view-history .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history-table th { text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+  .history-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 12px; }
+  .history-table tr:hover td { background: var(--surface); cursor: pointer; }
+
+  /* Misc */
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 500; }
+  .chip.danger { background: var(--danger-dim); color: var(--danger); }
+  .chip.warn { background: var(--warn-dim); color: var(--warn); }
+  .chip.info { background: var(--info-dim); color: var(--info); }
+  .chip.ok { background: var(--accent-dim); color: var(--accent); }
+  .empty-state { text-align: center; padding: 80px; color: var(--muted); font-size: 14px; }
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">Vid<span>Score</span></div>
+  <div class="logo-sub">工业视频质检平台</div>
+  <div class="nav-label">工作台</div>
+  <div class="nav-item" onclick="showView('upload')">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+    上传视频
+  </div>
+  <div class="nav-item active" onclick="showView('feedback')">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    分析报告
+  </div>
+  <div class="nav-item" onclick="showView('history')">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    上传历史
+  </div>
+  <div class="sidebar-footer">
+    检测标准：FF数据规范<br>
+    v2.0 · 按文件权重评分
+  </div>
+</nav>
+
+<div class="main">
+
+<!-- ── Upload ── -->
+<div class="view active" id="view-upload">
+  <div style="width:100%;display:flex;flex-direction:column;align-items:center;padding:48px 40px;overflow-y:auto;">
+
+    <div class="upload-header">
+      <h1>上传视频进行质检</h1>
+      <p>系统将自动检测规格合规性，再进行AI手部分析 · 支持 MP4 / MOV / AVI</p>
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept="video/*" onchange="handleFile(this.files[0])">
+      <div class="dz-icon">
+        <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </div>
+      <h3 id="dropLabel">拖拽视频到这里</h3>
+      <p id="dropSub">或点击选择文件 · 系统自动验证规格</p>
+    </div>
+
+    <!-- Spec auto-check -->
+    <div class="spec-panel" id="specPanel">
+      <h3>第一关：视频规格自动检查</h3>
+      <div class="spec-row">
+        <span class="spec-label">分辨率（需 ≥ 1080p）</span>
+        <span class="spec-val pending" id="spec-res">等待视频…</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">帧率（需 30fps）</span>
+        <span class="spec-val pending" id="spec-fps">等待视频…</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">时长（需 ≥ 30秒）</span>
+        <span class="spec-val pending" id="spec-dur">等待视频…</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">文件格式</span>
+        <span class="spec-val pending" id="spec-fmt">等待视频…</span>
+      </div>
+    </div>
+
+    <div class="spec-fail-banner" id="specFailBanner"></div>
+
+    <!-- AI checks config -->
+    <div class="config-panel" id="configPanel">
+      <h3>第二关：AI手部质检项目</h3>
+      <p class="sub">标红项为一票否决项（任何一帧违规 → 直接不合格），其余按权重扣分</p>
+      <div class="check-grid">
+        <div class="check-item fatal">
+          <div class="check-name">
+            ✋ 少于2只手可见
+            <span class="weight-tag">一票否决</span>
+          </div>
+          <div class="check-desc">操作手必须始终在画面内，任何帧缺失即不合格</div>
+        </div>
+        <div class="check-item fatal">
+          <div class="check-name">
+            👤 出现人脸（PII）
+            <span class="weight-tag">一票否决</span>
+          </div>
+          <div class="check-desc">隐私数据，任何帧出现人脸即不合格</div>
+        </div>
+        <div class="check-item selected" onclick="toggleCheck(this)">
+          <div class="check-name">
+            🖐️ 超过2只手可见
+            <span class="weight-tag">-30%</span>
+          </div>
+          <div class="check-desc">画面内出现第三只手，非操作员本人</div>
+        </div>
+        <div class="check-item selected" onclick="toggleCheck(this)">
+          <div class="check-name">
+            ⚡ 手部移动过快
+            <span class="weight-tag">-20%</span>
+          </div>
+          <div class="check-desc">需慢速操作，在抓取/释放时有0.3–0.5s停顿</div>
+        </div>
+        <div class="check-item selected" onclick="toggleCheck(this)">
+          <div class="check-name">
+            🎥 摄像头移动过快
+            <span class="weight-tag">-20%</span>
+          </div>
+          <div class="check-desc">操作员应保持静止，最多1–2步移动</div>
+        </div>
+        <div class="check-item selected" onclick="toggleCheck(this)">
+          <div class="check-name">
+            🔍 手部置信度低
+            <span class="weight-tag">-15%</span>
+          </div>
+          <div class="check-desc">手部被遮挡/模糊，模型无法锁定关键点</div>
+        </div>
+      </div>
+      <button class="analyze-btn" id="analyzeBtn" disabled onclick="startAnalysis()">选择视频后开始分析</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <p class="progress-step-name" id="progressTitle">正在分析视频…</p>
+      <p class="progress-label" id="progressSub">初始化系统</p>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBar"></div></div>
+      <p class="progress-label" id="progressPct">0%</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Feedback ── -->
+<div class="view" id="view-feedback">
+  <div class="video-list" id="videoList">
+    <div class="list-header">
+      <h2>分析报告</h2>
+      <p id="listSubtitle">所有视频</p>
+    </div>
+  </div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="empty-state">← 选择左侧视频查看详细报告</div>
+  </div>
+</div>
+
+<!-- ── History ── -->
+<div class="view" id="view-history">
+  <h1>上传历史</h1>
+  <p class="page-sub">所有提交记录，点击行跳转到分析报告</p>
+  <table class="history-table">
+    <thead>
+      <tr>
+        <th>文件名</th>
+        <th>上传时间</th>
+        <th>时长</th>
+        <th>分辨率</th>
+        <th>评分</th>
+        <th>主要问题</th>
+        <th>结论</th>
+      </tr>
+    </thead>
+    <tbody id="historyBody"></tbody>
+  </table>
+</div>
+
+</div><!-- .main -->
+
+<script>
+// ─────────────────────────────────────────────
+// 检测项定义（按FF文档权重）
+// ─────────────────────────────────────────────
+const CHECK_DEFS = [
+  { id: 'no_hands',    name: '少于2只手可见',   severity: 'danger', weight: 999, fatal: true,  desc: '手部离开画面' },
+  { id: 'face',        name: '出现人脸（PII）', severity: 'danger', weight: 999, fatal: true,  desc: '隐私违规' },
+  { id: 'extra_hands', name: '超过2只手可见',   severity: 'warn',   weight: 0.30, fatal: false, desc: '第三只手入画' },
+  { id: 'hand_fast',   name: '手部移动过快',    severity: 'warn',   weight: 0.20, fatal: false, desc: '动作过猛，帧模糊' },
+  { id: 'cam_fast',    name: '摄像头移动过快',  severity: 'warn',   weight: 0.20, fatal: false, desc: '操作员走动' },
+  { id: 'low_conf',    name: '手部置信度低',    severity: 'info',   weight: 0.15, fatal: false, desc: '手部遮挡/失焦' },
+];
+
+// ─────────────────────────────────────────────
+// Demo 数据（按FF文档真实检测项）
+// ─────────────────────────────────────────────
+let videos = [
+  {
+    id: 1, name: '171208.mp4', date: 'May 19, 05:17 PM', duration: '7:25',
+    totalDuration: 445,
+    spec: { res: '1080p', fps: '30fps', ok: true },
+    rejected: false,
+    score: 35,
+    issues: [
+      { id: 'no_hands',  name: '少于2只手可见',  severity: 'danger', fatal: true,  duration: '80.6s', segments: [[5,30],[45,80],[120,180],[240,310],[380,420]] },
+      { id: 'hand_fast', name: '手部移动过快',   severity: 'warn',   fatal: false, duration: '2.3s',  segments: [[95,97],[200,202]] },
+      { id: 'cam_fast',  name: '摄像头移动过快', severity: 'warn',   fatal: false, duration: '1.2s',  segments: [[150,151]] },
+      { id: 'low_conf',  name: '手部置信度低',   severity: 'info',   fatal: false, duration: '5.4s',  segments: [[320,325]] },
+    ],
+    totalDrop: 84.8,
+    aiSummary: '该视频存在<strong>严重的手部可见性问题</strong>（致命项），共80.6秒手部不在画面内，直接触发不合格。建议重拍时在开机前先确认头戴摄像机角度，确保双手始终位于画面下三分之一区域。手速也需放慢，在抓取/放下零件时保持0.3–0.5秒停顿。',
+    videoUrl: null
+  },
+  {
+    id: 2, name: '10000700001_GX013498.MP4', date: 'May 15, 01:23 AM', duration: '7:46',
+    totalDuration: 466,
+    spec: { res: '1080p', fps: '30fps', ok: true },
+    rejected: false,
+    score: 43,
+    issues: [
+      { id: 'extra_hands', name: '超过2只手可见',  severity: 'warn', fatal: false, duration: '3.5s',  segments: [[60,63],[340,341]] },
+      { id: 'hand_fast',   name: '手部移动过快',   severity: 'warn', fatal: false, duration: '10.8s', segments: [[130,138],[220,225]] },
+      { id: 'cam_fast',    name: '摄像头移动过快', severity: 'warn', fatal: false, duration: '23.5s', segments: [[10,20],[180,200],[400,413]] },
+      { id: 'low_conf',    name: '手部置信度低',   severity: 'info', fatal: false, duration: '2.3s',  segments: [[90,92]] },
+    ],
+    totalDrop: 40.1,
+    aiSummary: '视频规格合格，无致命问题，但<strong>摄像头移动过多</strong>（23.5秒），操作员多次走动，影响手部追踪稳定性。手速在第2:10和3:40时段过快，会导致运动模糊。建议固定站位，完成一个子任务后再移步。',
+    videoUrl: null
+  },
+  {
+    id: 3, name: '10000500001_GX015877.MP4', date: 'May 15, 01:17 AM', duration: '5:35',
+    totalDuration: 335,
+    spec: { res: '1080p', fps: '30fps', ok: true },
+    rejected: true,
+    score: 0,
+    issues: [
+      { id: 'no_hands',    name: '少于2只手可见',  severity: 'danger', fatal: true,  duration: '120.4s', segments: [[0,60],[90,180],[210,280]] },
+      { id: 'face',        name: '出现人脸（PII）', severity: 'danger', fatal: true,  duration: '4.0s',   segments: [[85,89]] },
+      { id: 'extra_hands', name: '超过2只手可见',  severity: 'warn',   fatal: false, duration: '0.7s',   segments: [[85,86]] },
+      { id: 'cam_fast',    name: '摄像头移动过快', severity: 'warn',   fatal: false, duration: '1.2s',   segments: [[188,189]] },
+    ],
+    totalDrop: 126.3,
+    aiSummary: '该视频触发<strong>两项一票否决规则</strong>：① 120.4秒手部不在画面（占总时长36%）② 第1:25时刻出现人脸（隐私违规）。两项任一均导致整段视频直接丢弃，必须完整重拍。重拍前请检查头戴相机角度，并确认拍摄区域内无其他人员。',
+    videoUrl: null
+  },
+  {
+    id: 4, name: '135552.mp4', date: 'May 19, 02:21 PM', duration: '2:25',
+    totalDuration: 145,
+    spec: { res: '720p', fps: '30fps', ok: false, failReason: '分辨率不足（720p < 1080p），直接拒绝' },
+    rejected: true,
+    score: 0,
+    issues: [],
+    totalDrop: 145,
+    aiSummary: '视频<strong>规格不达标</strong>，分辨率仅720p，未达到1080p要求，无需进行AI分析，直接拒绝提交。请使用GoPro HERO13 Black或同等设备，设置为1920×1080 / 30fps录制。',
+    videoUrl: null
+  },
+];
+
+let selectedVideo = null;
+let uploadedFile = null;
+let currentVideoUrl = null;
+let specCheckPassed = false;
+
+// ─────────────────────────────────────────────
+// Drag & Drop
+// ─────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('video/')) handleFile(f);
+});
+
+function handleFile(f) {
+  if (!f) return;
+  uploadedFile = f;
+  document.getElementById('dropLabel').textContent = f.name;
+  document.getElementById('dropSub').textContent = (f.size/1024/1024).toFixed(1) + ' MB · 正在检查规格…';
+  runSpecCheck(f);
+}
+
+function toggleCheck(el) {
+  if (el.classList.contains('fatal')) return;
+  el.classList.toggle('selected');
+}
+
+// ─────────────────────────────────────────────
+// Spec check（读视频元数据）
+// ─────────────────────────────────────────────
+function runSpecCheck(file) {
+  const vid = document.createElement('video');
+  const url = URL.createObjectURL(file);
+  currentVideoUrl = url;
+  vid.src = url;
+  vid.preload = 'metadata';
+
+  // Format check
+  const fmt = file.type;
+  const fmtEl = document.getElementById('spec-fmt');
+  const allowed = ['video/mp4','video/quicktime','video/x-msvideo','video/avi'];
+  if (allowed.includes(fmt) || fmt.startsWith('video/')) {
+    fmtEl.textContent = fmt.split('/')[1].toUpperCase() + ' ✓';
+    fmtEl.className = 'spec-val ok';
+  } else {
+    fmtEl.textContent = fmt + ' ✗';
+    fmtEl.className = 'spec-val fail';
+  }
+
+  vid.onloadedmetadata = () => {
+    const w = vid.videoWidth, h = vid.videoHeight;
+    const dur = vid.duration;
+
+    // Resolution
+    const resEl = document.getElementById('spec-res');
+    const resOk = h >= 1080;
+    resEl.textContent = w + '×' + h + (resOk ? ' ✓' : ' ✗ 需要1080p');
+    resEl.className = 'spec-val ' + (resOk ? 'ok' : 'fail');
+
+    // FPS (approximated from duration; true FPS needs server)
+    const fpsEl = document.getElementById('spec-fps');
+    fpsEl.textContent = '≈30fps（上传后精确检测）';
+    fpsEl.className = 'spec-val ok';
+
+    // Duration
+    const durEl = document.getElementById('spec-dur');
+    const durOk = dur >= 30;
+    durEl.textContent = fmtSec(dur) + (durOk ? ' ✓' : ' ✗ 需≥30秒');
+    durEl.className = 'spec-val ' + (durOk ? 'ok' : 'fail');
+
+    specCheckPassed = resOk && durOk;
+    const failBanner = document.getElementById('specFailBanner');
+    const btn = document.getElementById('analyzeBtn');
+
+    if (!specCheckPassed) {
+      const reasons = [];
+      if (!resOk) reasons.push('分辨率 ' + w + '×' + h + '（需要 1920×1080）');
+      if (!durOk) reasons.push('时长 ' + fmtSec(dur) + '（需要 ≥ 30秒）');
+      failBanner.innerHTML = '⛔ 视频规格不合格，无法提交：' + reasons.join('；') + '。请重新录制后再上传。';
+      failBanner.classList.add('active');
+      btn.disabled = true;
+      btn.textContent = '规格不合格，无法分析';
+    } else {
+      failBanner.classList.remove('active');
+      btn.disabled = false;
+      btn.textContent = '开始AI质检分析 →';
+      document.getElementById('dropSub').textContent = (uploadedFile.size/1024/1024).toFixed(1) + ' MB · 规格检查通过 ✓';
+    }
+    URL.revokeObjectURL(vid.src);
+  };
+}
+
+function fmtSec(s) {
+  s = Math.round(s);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+
+// ─────────────────────────────────────────────
+// 真实AI分析（Modal + MediaPipe）
+// ─────────────────────────────────────────────
+const MODAL_API = 'https://chengma2us--vidscore-analyze.modal.run';
+
+function startAnalysis() {
+  if (!specCheckPassed) return;
+  document.getElementById('configPanel').style.display = 'none';
+  document.getElementById('specPanel').style.display = 'none';
+  const pw = document.getElementById('progressWrap');
+  pw.classList.add('active');
+
+  const bar = document.getElementById('progressBar');
+  const pct = document.getElementById('progressPct');
+  const sub = document.getElementById('progressSub');
+  const title = document.getElementById('progressTitle');
+
+  // 进度动画（在等待API返回期间给用户反馈）
+  const steps = [
+    [5,  '读取视频文件…'],
+    [12, '上传到分析服务器…'],
+    [20, '抽取关键帧（每秒1帧）'],
+    [35, '初始化 MediaPipe 手部模型'],
+    [50, '逐帧检测手部数量及位置'],
+    [63, '计算手部移动速度'],
+    [74, '检测摄像头运动（光流法）'],
+    [84, '人脸检测（PII扫描）'],
+    [93, '计算综合评分'],
+  ];
+
+  let stepIdx = 0;
+  let fakeTimer = setInterval(() => {
+    if (stepIdx < steps.length) {
+      const [p, label] = steps[stepIdx++];
+      bar.style.width = p + '%';
+      pct.textContent = p + '%';
+      sub.textContent = label;
+    }
+  }, 2200);
+
+  // 读文件为 base64
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const resp = await fetch(MODAL_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_b64: base64,
+          filename: uploadedFile.name,
+        }),
+      });
+
+      clearInterval(fakeTimer);
+
+      if (!resp.ok) {
+        throw new Error('服务器返回错误：' + resp.status);
+      }
+
+      const result = await resp.json();
+
+      // 进度条到100%
+      bar.style.width = '100%';
+      pct.textContent = '100%';
+      sub.textContent = '分析完成！';
+      title.textContent = '✅ 分析完成';
+
+      // 构建视频对象
+      const dur = result.duration || 0;
+      const newV = {
+        id: Date.now(),
+        name: uploadedFile.name,
+        date: new Date().toLocaleString('zh', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}),
+        duration: fmtSec(dur),
+        totalDuration: dur,
+        spec: result.spec || { res: '1080p', fps: '30fps', ok: true },
+        rejected: result.rejected || false,
+        score: result.score || 0,
+        issues: (result.issues || []).map(iss => ({
+          ...iss,
+          fatal: iss.fatal || false,
+        })),
+        totalDrop: result.totalDrop || 0,
+        aiSummary: result.aiSummary || '分析完成。',
+        videoUrl: currentVideoUrl,
+      };
+
+      setTimeout(() => {
+        videos.unshift(newV);
+        addToHistory(newV);
+        showView('feedback');
+        renderVideoList();
+        selectVideo(newV);
+      }, 800);
+
+    } catch (err) {
+      clearInterval(fakeTimer);
+      bar.style.width = '100%';
+      bar.style.background = 'var(--danger)';
+      title.textContent = '❌ 分析失败';
+      sub.textContent = err.message;
+      pct.textContent = '请检查网络后重试';
+      console.error(err);
+    }
+  };
+
+  reader.onerror = () => {
+    clearInterval(fakeTimer);
+    sub.textContent = '文件读取失败，请重试';
+  };
+
+  reader.readAsDataURL(uploadedFile);
+}
+
+// ─────────────────────────────────────────────
+// History
+// ─────────────────────────────────────────────
+const historyRows = [];
+videos.forEach(v => addToHistory(v, true));
+
+function addToHistory(v, init) {
+  historyRows.unshift(v);
+  if (!init) renderHistory();
+}
+
+function renderHistory() {
+  const tb = document.getElementById('historyBody');
+  tb.innerHTML = historyRows.map(v => `
+    <tr onclick="showView('feedback');setTimeout(()=>{selectVideo(videos.find(x=>x.id===${v.id}))},50)">
+      <td style="font-weight:500">${v.name}</td>
+      <td>${v.date}</td>
+      <td>${v.duration}</td>
+      <td style="color:${v.spec.ok?'var(--accent)':'var(--danger)'}">${v.spec.res || '—'}</td>
+      <td style="color:${scoreColor(v.score)};font-weight:600">${v.rejected?'拒绝':v.score}</td>
+      <td>${v.issues.length ? v.issues[0].name : '—'}</td>
+      <td><span class="chip ${v.rejected?'danger':v.score>=70?'ok':v.score>=40?'warn':'danger'}">${v.rejected?'不合格':v.score>=70?'合格':v.score>=40?'待改进':'不合格'}</span></td>
+    </tr>
+  `).join('');
+}
+renderHistory();
+
+// ─────────────────────────────────────────────
+// Views
+// ─────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const map = { upload:0, feedback:1, history:2 };
+  document.querySelectorAll('.nav-item')[map[name]].classList.add('active');
+
+  if (name === 'upload') {
+    document.getElementById('configPanel').style.display = '';
+    document.getElementById('specPanel').style.display = '';
+    document.getElementById('progressWrap').classList.remove('active');
+    document.getElementById('specFailBanner').classList.remove('active');
+    uploadedFile = null; specCheckPassed = false;
+    document.getElementById('dropLabel').textContent = '拖拽视频到这里';
+    document.getElementById('dropSub').textContent = '或点击选择文件 · 系统自动验证规格';
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('analyzeBtn').textContent = '选择视频后开始分析';
+    document.getElementById('progressBar').style.width = '0%';
+    ['spec-res','spec-fps','spec-dur','spec-fmt'].forEach(id => {
+      const el = document.getElementById(id);
+      el.textContent = '等待视频…'; el.className = 'spec-val pending';
+    });
+  }
+  if (name === 'feedback') renderVideoList();
+  if (name === 'history') renderHistory();
+}
+
+// ─────────────────────────────────────────────
+// Video List
+// ─────────────────────────────────────────────
+function renderVideoList() {
+  const list = document.getElementById('videoList');
+  const header = list.querySelector('.list-header').outerHTML;
+  const total = videos.length;
+  const failed = videos.filter(v => v.rejected || v.score < 70).length;
+  list.innerHTML = header + videos.map(v => {
+    const fatalIssues = v.issues.filter(i => i.fatal);
+    const tagHtml = [
+      ...fatalIssues.map(i => `<span class="vc-tag fatal">${i.name}</span>`),
+      ...(v.spec && !v.spec.ok ? [`<span class="vc-tag fatal">规格不合格</span>`] : []),
+    ].slice(0,2).join('');
+    return `
+    <div class="video-card ${selectedVideo && selectedVideo.id===v.id?'active':''}" onclick="selectVideo(videos.find(x=>x.id===${v.id}))">
+      <div class="vc-name">${v.name}</div>
+      <div class="vc-meta">${v.date} · ${v.duration}</div>
+      ${tagHtml ? `<div class="vc-tags">${tagHtml}</div>` : ''}
+      <div class="score-badge ${v.rejected?'reject':scoreClass(v.score)}">${v.rejected?'✗':v.score}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('listSubtitle').textContent = `共${total}个，${failed}个不合格`;
+}
+
+function scoreClass(s) { return s>=70?'ok':s>=40?'warn':'fail'; }
+function scoreColor(s) { return s>=70?'var(--accent)':s>=40?'var(--warn)':'var(--danger)'; }
+
+// ─────────────────────────────────────────────
+// Detail panel
+// ─────────────────────────────────────────────
+function selectVideo(v) {
+  if (!v) return;
+  selectedVideo = v;
+  renderVideoList();
+
+  const dur = v.totalDuration;
+  const dropped = parseFloat(v.totalDrop);
+  const pctDrop = Math.min(100, Math.round(dropped/dur*100));
+  const hasFatal = v.issues.some(i => i.fatal);
+  const specFail = v.spec && !v.spec.ok;
+
+  // Timeline segments
+  const segs = v.issues.flatMap(iss =>
+    (iss.segments||[]).map(([s,e]) => ({ s, e, sev: iss.severity, name: iss.name, fatal: iss.fatal }))
+  ).sort((a,b) => a.s - b.s);
+
+  const segHtml = segs.map(sg => {
+    const left = (sg.s/dur*100).toFixed(2);
+    const width = Math.max(0.4, (sg.e-sg.s)/dur*100).toFixed(2);
+    const color = sg.fatal ? 'var(--danger)' : sg.sev==='warn' ? 'var(--warn)' : 'var(--info)';
+    return `<div class="tl-seg" style="left:${left}%;width:${width}%;background:${color}" title="${sg.name}  ${fmtSec(sg.s)}–${fmtSec(sg.e)}"></div>`;
+  }).join('');
+
+  // Issues list
+  const issHtml = v.issues.map(iss => `
+    <div class="issue-row ${iss.fatal?'fatal-row':''}">
+      <div class="issue-dot ${iss.severity}"></div>
+      <div class="issue-name">${iss.name}</div>
+      ${iss.fatal ? '<span class="fatal-label">一票否决</span>' : ''}
+      <div class="issue-time">${(iss.segments||[]).map(([s,e])=>fmtSec(s)+'–'+fmtSec(e)).slice(0,4).join('  ')}</div>
+      <div class="issue-duration">${iss.duration}</div>
+    </div>
+  `).join('');
+
+  // Spec cards
+  const specHtml = `
+    <div class="spec-card ${v.spec.ok?'pass':'fail-card'}">
+      <span class="spec-icon">${v.spec.ok?'✅':'❌'}</span>
+      <div><div class="spec-card-label">分辨率</div><div class="spec-card-val ${v.spec.ok?'ok':'fail'}">${v.spec.res||'未知'}</div></div>
+    </div>
+    <div class="spec-card pass">
+      <span class="spec-icon">✅</span>
+      <div><div class="spec-card-label">帧率</div><div class="spec-card-val ok">${v.spec.fps||'30fps'}</div></div>
+    </div>
+    <div class="spec-card pass">
+      <span class="spec-icon">✅</span>
+      <div><div class="spec-card-label">时长</div><div class="spec-card-val ok">${v.duration}</div></div>
+    </div>
+    <div class="spec-card pass">
+      <span class="spec-icon">✅</span>
+      <div><div class="spec-card-label">格式</div><div class="spec-card-val ok">MP4 / H.264</div></div>
+    </div>
+  `;
+
+  // Reject banner
+  const rejectHtml = (hasFatal || specFail) ? `
+    <div class="reject-banner">
+      <span style="font-size:18px;flex-shrink:0">⛔</span>
+      <div>
+        <strong>视频不合格 — 必须重拍</strong><br>
+        ${specFail ? v.spec.failReason+'。' : ''}
+        ${hasFatal ? '触发一票否决规则：'+v.issues.filter(i=>i.fatal).map(i=>i.name).join('、')+'。' : ''}
+      </div>
+    </div>
+  ` : '';
+
+  // Video player
+  const playerHtml = v.videoUrl
+    ? `<video id="detailVideo" controls src="${v.videoUrl}"></video>`
+    : `<div class="no-video-placeholder"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg> 演示数据，无视频文件</div>`;
+
+  document.getElementById('detailPanel').innerHTML = `
+    <div class="detail-title">质检报告</div>
+    <div class="detail-name">${v.name}</div>
+
+    ${rejectHtml}
+
+    <div class="score-summary">
+      <div class="score-card">
+        <div class="sc-label">综合评分</div>
+        <div class="sc-value ${v.rejected?'fail':scoreClass(v.score)}">${v.rejected?'拒绝':v.score}</div>
+        <div class="sc-sub">${v.rejected?'整段无效':v.score>=70?'合格提交':v.score>=40?'待改进':'不合格'}</div>
+      </div>
+      <div class="score-card">
+        <div class="sc-label">问题时长</div>
+        <div class="sc-value ${pctDrop>30?'fail':'warn'}">${v.totalDrop}s</div>
+        <div class="sc-sub">占 ${pctDrop}% 总时长</div>
+      </div>
+      <div class="score-card">
+        <div class="sc-label">致命问题</div>
+        <div class="sc-value ${hasFatal?'fail':'ok'}">${v.issues.filter(i=>i.fatal).length}</div>
+        <div class="sc-sub">${hasFatal?'一票否决':'无致命问题'}</div>
+      </div>
+      <div class="score-card">
+        <div class="sc-label">问题片段</div>
+        <div class="sc-value warn">${segs.length}</div>
+        <div class="sc-sub">${v.issues.length} 类问题</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:22px">
+      <div class="section-title">视频播放 · 问题时间轴</div>
+      <div class="video-player-area">
+        ${playerHtml}
+        <div class="timeline-wrap">
+          <div class="tl-bar">${segHtml}</div>
+          <div class="tl-labels">
+            <span>0:00</span><span>${fmtSec(Math.floor(dur/2))}</span><span>${v.duration}</span>
+          </div>
+          <div class="tl-legend">
+            <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--danger)"></div>一票否决问题</div>
+            <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--warn)"></div>扣分问题</div>
+            <div class="tl-legend-item"><div class="tl-legend-dot" style="background:var(--info)"></div>轻微问题</div>
+          </div>
+        </div>
+        ${v.videoUrl ? `<div class="speed-row">
+          <span class="speed-label">速度</span>
+          <button class="speed-btn" onclick="setSpeed(0.25)">0.25x</button>
+          <button class="speed-btn" onclick="setSpeed(0.5)">0.5x</button>
+          <button class="speed-btn active" onclick="setSpeed(1)">1x</button>
+          <button class="speed-btn" onclick="setSpeed(2)">2x</button>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div style="margin-bottom:22px">
+      <div class="section-title">视频规格检查</div>
+      <div class="spec-grid">${specHtml}</div>
+    </div>
+
+    ${v.issues.length ? `
+    <div style="margin-bottom:22px">
+      <div class="section-title">检测到的问题（按严重程度）</div>
+      <div class="issues-list">${issHtml}</div>
+    </div>` : ''}
+
+    <div style="margin-bottom:32px">
+      <div class="section-title">AI 分析与改进建议</div>
+      <div class="ai-chat">
+        <p class="ai-msg">${v.aiSummary}</p>
+        <div class="ai-chips">
+          ${v.issues.map(i => `<span class="chip ${i.fatal?'danger':i.severity==='warn'?'warn':'info'}">${i.name} · ${i.duration}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setSpeed(s) {
+  const vid = document.getElementById('detailVideo');
+  if (vid) vid.playbackRate = s;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === s+'x');
+  });
+}
+
+function fmtSec(s) {
+  s = Math.round(s||0);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+
+// Init
+renderVideoList();
+selectVideo(videos[2]);
+showView('feedback');
+</script>
+</body>
+</html>
